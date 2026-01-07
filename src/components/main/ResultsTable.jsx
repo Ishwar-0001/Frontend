@@ -1,134 +1,129 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import api from "../../api/api";
 
-function ResultsTable() {
-  // Data exactly as per the image
-  const data = [
-    { place: "FOOTPATH", time: "(01:00 AM)", last: "99", today: "56" },
-    { place: "DESAWER", time: "(05:00 AM)", last: "29", today: "53" },
-    { place: "KALYUG", time: "(02:20 PM)", last: "22", today: "49" },
-    { place: "BOMBAY CITY", time: "(02:30 PM)", last: "87", today: "13" },
-    { place: "DELHI BAZAR", time: "(03:00 PM)", last: "79", today: "69" },
-    { place: "SHREE GANESH", time: "(04:30 PM)", last: "21", today: "62" },
-    { place: "FARIDABAD", time: "(06:00 PM)", last: "75", today: "--" },
-    { place: "GHAZIABAD", time: "(08:30 PM)", last: "55", today: "--" },
-    { place: "NOIDA CITY", time: "(10:30 PM)", last: "12", today: "--" },
-    { place: "GALI", time: "(11:30 PM)", last: "53", today: "--" },
-  ];
+/* ---------- CONFIG & HELPERS ---------- */
+const GAMES = [
+  { key: "DESAWAR", gameId: "116", time: "(05:00 AM)" },
+  { key: "SHRI GANESH", gameId: "127", time: "(04:30 PM)" },
+  { key: "DELHI BAZAR", gameId: "126", time: "(03:00 PM)" },
+  { key: "GALI", gameId: "120", time: "(11:30 PM)" },
+  { key: "GHAZIABAD", gameId: "119", time: "(08:30 PM)" },
+  { key: "FARIDABAD", gameId: "117", time: "(06:00 PM)" },
+  { key: "NOIDA KING", gameId: "001", time: "(10:30 PM)" },
+];
 
-  const mid = Math.ceil(data.length / 2);
-  const left = data.slice(0, mid);
-  const right = data.slice(mid);
+const formatDate = (d) =>
+  `${String(d.getDate()).padStart(2, "0")}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
 
-  // ⭐ THE "PERFECT" ARROW BADGE
-  // Technique: We layer two arrows.
-  // 1. A larger Yellow one (acts as the border).
-  // 2. A smaller Red one (acts as the fill) positioned absolutely on top.
-  const ArrowBadge = () => {
-    // Configuration for the arrow size
-    const height = 18;
-    const border = 2; // Thickness of the yellow border
+const TODAY = formatDate(new Date());
+const YESTERDAY = formatDate(new Date(Date.now() - 86400000));
 
-    // Math for the CSS triangles
-    const outerHalf = height / 2;
-    const innerHalf = (height - border * 2) / 2;
+/* ---------- REFINED COMPONENTS ---------- */
 
-    return (
-      <div className="relative flex items-center mx-1" style={{ height: `${height}px` }}>
-        
-        {/* --- LAYER 1: BACKGROUND (Yellow Border) --- */}
-        <div className="flex items-center">
-          {/* Rect */}
-          <div className="bg-yellow-300 h-full pl-2 pr-1 rounded-l-sm flex items-center">
-            {/* Invisible text to prop open the width */}
-            <span className="text-[10px] font-bold opacity-0 font-sans tracking-tighter">NEW</span>
-          </div>
-          {/* Triangle Tip */}
-          <div
-            className="w-0 h-0 border-t-transparent border-b-transparent border-l-yellow-300"
-            style={{
-              borderTopWidth: `${outerHalf}px`,
-              borderBottomWidth: `${outerHalf}px`,
-              borderLeftWidth: `${outerHalf}px`,
-            }}
-          ></div>
-        </div>
+const ArrowBadge = React.memo(() => (
+  <div className="flex items-center justify-center px-1">
+    <svg width="42" height="18" viewBox="0 0 42 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Outer Border (Yellow) */}
+      <path d="M0 0H35L42 9L35 18H0V0Z" fill="#FDE047" />
+      {/* Inner Fill (Red) */}
+      <path d="M1.5 1.5H34.5L40 9L34.5 16.5H1.5V1.5Z" fill="#D00000" />
+      <text x="5" y="12.5" fill="#FDE047" fontSize="9" fontWeight="900" fontFamily="Arial, sans-serif">NEW</text>
+    </svg>
+  </div>
+));
 
-        {/* --- LAYER 2: FOREGROUND (Red Fill) --- */}
-        <div
-          className="absolute flex items-center z-10"
-          style={{ top: `${border}px`, left: `${border}px` }}
-        >
-          {/* Rect */}
-          <div className="bg-[#d00000] h-full pl-1 pr-0.5 flex items-center justify-center rounded-l-sm">
-            <span className="text-yellow-300 text-[10px] font-bold leading-none font-sans tracking-tighter">
-              NEW
-            </span>
-          </div>
-          {/* Triangle Tip */}
-          <div
-            className="w-0 h-0 border-t-transparent border-b-transparent border-l-[#d00000]"
-            style={{
-              borderTopWidth: `${innerHalf}px`,
-              borderBottomWidth: `${innerHalf}px`,
-              borderLeftWidth: `${innerHalf}px`,
-            }}
-          ></div>
-        </div>
-
-      </div>
-    );
-  };
-
-  // Component for a single table row
-  const RowItem = ({ row }) => (
-    <div className="py-4 min-h-[110px] flex flex-col items-center justify-center border-b border-black last:border-b-0 w-full">
-      <h2 className="text-white font-bold uppercase text-[15px] tracking-wide font-serif">{row.place}</h2>
-      <h3 className="text-yellow-300 font-bold text-[13px] mb-1 font-serif">{row.time}</h3>
-
-      <div className="flex items-center justify-center gap-4 w-full px-2 mt-1">
-        {/* LAST Section */}
-        <div className="flex flex-col items-center">
-          <span className="text-white text-[12px] mb-0.5 leading-none font-serif">Last</span>
-          <div className="bg-white min-w-[36px] h-[22px] rounded-[10px] flex items-center justify-center px-1 shadow-sm">
-            <span className="text-[#d00000] font-bold text-[15px] leading-none font-serif">{row.last}</span>
-          </div>
-        </div>
-
-        {/* ARROW Badge (Centered between them) */}
-        <div className="pt-3">
-          <ArrowBadge />
-        </div>
-
-        {/* TODAY Section */}
-        <div className="flex flex-col items-center">
-          <span className="text-white text-[12px] mb-0.5 leading-none font-serif">Today</span>
-          <div className="bg-white min-w-[36px] h-[22px] rounded-[10px] flex items-center justify-center px-1 shadow-sm">
-            <span className="text-[#d00000] font-bold text-[15px] leading-none font-serif">{row.today}</span>
-          </div>
-        </div>
-      </div>
+const ValueBox = ({ label, value }) => (
+  <div className="flex flex-col items-center">
+    <span className="text-white text-[11px] font-bold mb-1">{label}</span>
+    <div className="bg-white min-w-[40px] px-1.5 h-6 rounded-full flex justify-center items-center shadow-md">
+      <span className="text-[#D00000] font-black text-sm">{value}</span>
     </div>
+  </div>
+);
+
+const RowItem = React.memo(({ row }) => (
+  <div className="py-5 flex flex-col items-center border-b border-black/40 w-full hover:bg-black/5 transition-colors">
+    <h2 className="text-white font-black uppercase text-[16px] tracking-tight">{row.place}</h2>
+    <h3 className="text-yellow-300 text-[12px] font-bold mb-3">{row.time}</h3>
+
+    {/* This container uses items-end to align the "Value Boxes" and "Arrow" perfectly in the middle */}
+    <div className="flex items-end justify-center gap-1">
+      <ValueBox label="Last" value={row.last} />
+      
+      {/* Wrapper to ensure the arrow sits at the same height as the white boxes */}
+      <div className="pb-1"> 
+        <ArrowBadge />
+      </div>
+
+      <ValueBox label="Today" value={row.today} />
+    </div>
+  </div>
+));
+
+/* ---------- MAIN COMPONENT ---------- */
+
+export default function ResultsTable() {
+  const [rows, setRows] = useState([]);
+
+  const gameIndexById = useMemo(() => {
+    const map = {};
+    GAMES.forEach((g, i) => (map[g.gameId] = i));
+    return map;
+  }, []);
+
+  const defaultRows = useMemo(
+    () => GAMES.map((g) => ({ place: g.key, time: g.time, today: "-", last: "-" })),
+    []
   );
 
+  useEffect(() => {
+    const fetchResults = async () => {
+      const resultRows = defaultRows.map((r) => ({ ...r }));
+      try {
+        const [scrapeRes, noidaRes] = await Promise.all([
+          fetch(api.ReadScrapeData.totalData).then((r) => r.json()),
+          fetch(api.GameResults.getAll).then((r) => r.json()),
+        ]);
+
+        scrapeRes?.data?.forEach(({ gameId, date, resultNumber }) => {
+          const index = gameIndexById[gameId];
+          if (index !== undefined) {
+            if (date === TODAY) resultRows[index].today = resultNumber ?? "-";
+            if (date === YESTERDAY) resultRows[index].last = resultNumber ?? "-";
+          }
+        });
+
+        const noidaIdx = gameIndexById["001"];
+        const noidaGame = noidaRes?.data?.find((g) => g.gameId === "001");
+        noidaGame?.results?.forEach(({ date, resultNumber }) => {
+          if (date === TODAY) resultRows[noidaIdx].today = resultNumber ?? "-";
+          if (date === YESTERDAY) resultRows[noidaIdx].last = resultNumber ?? "-";
+        });
+
+        setRows(resultRows);
+      } catch (err) {
+        console.error("API Error:", err);
+      }
+    };
+    fetchResults();
+  }, [defaultRows, gameIndexById]);
+
+  const mid = Math.ceil(rows.length / 2);
+  const left = rows.slice(0, mid);
+  const right = rows.slice(mid);
+
   return (
-    <div className="w-full min-h-screen bg-[#002800] py-8 font-serif">
-      <div className="max-w-4xl mx-auto border-2 border-black bg-[#002800]">
+    <div className="w-full min-h-screen bg-[#002e00] p-4 font-sans">
+      <div className="max-w-4xl mx-auto border-[2px] border-black shadow-xl rounded-sm bg-[#003d00]">
         <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-black">
-          
-          {/* Left Column */}
           <div className="flex flex-col">
-            {left.map((row, i) => <RowItem key={i} row={row} />)}
+            {left.map((r) => <RowItem key={r.place} row={r} />)}
           </div>
-
-          {/* Right Column */}
           <div className="flex flex-col">
-            {right.map((row, i) => <RowItem key={i} row={row} />)}
+            {right.map((r) => <RowItem key={r.place} row={r} />)}
           </div>
-
         </div>
       </div>
     </div>
   );
 }
-
-export default ResultsTable;
