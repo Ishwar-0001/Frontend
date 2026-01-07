@@ -9,7 +9,7 @@ const GAME_MAP = {
   "120": "GALI",
   "119": "GHAZIABAD",
   "117": "FARIDABAD",
-  "001": "NOIDA KING", 
+  // "001" is handled specifically from the GameResults API
 };
 
 export default function GameChartTable() {
@@ -19,33 +19,36 @@ export default function GameChartTable() {
   useEffect(() => {
     const fetchAllData = async () => {
       try {
-        const response = await fetch(api.ReadScrapeData.totalData);
-        const json = await response.json();
+        // Fetch both APIs simultaneously
+        const [scrapeRes, noidaRes] = await Promise.all([
+          fetch(api.ReadScrapeData.totalData).then((res) => res.json()),
+          fetch(api.GameResults.getAll).then((res) => res.json()),
+        ]);
 
-        const rawData = json.data || [];
         const table = {};
 
-        rawData.forEach((item) => {
-          // --- CASE 1: Nested Results (Noida King Structure) ---
-          if (Array.isArray(item.results)) {
-            item.results.forEach((res) => {
-              // Force check for Noida King ID if the API sends a different one (like 1233333)
-              // Or keep item.gameId if the API is corrected to '001'
-              const gameId = item.gameId === "1233333" ? "001" : item.gameId;
-              const columnName = GAME_MAP[gameId];
-              
-              if (columnName && res.date) {
+        /* ---------- PROCESS SCRAPED DATA (Main Games) ---------- */
+        const mainData = scrapeRes.data || [];
+        mainData.forEach((item) => {
+          if (!item?.date || !item?.gameId) return;
+          const columnName = GAME_MAP[item.gameId];
+          if (!columnName) return;
+
+          if (!table[item.date]) table[item.date] = createEmptyRow(item.date);
+          table[item.date][columnName] = item.resultNumber ?? "-";
+        });
+
+        /* ---------- PROCESS NOIDA KING DATA (Nested Structure) ---------- */
+        const noidaDataList = noidaRes.data || [];
+        noidaDataList.forEach((gameGroup) => {
+          // Check if this group is Noida King (ID 001 or the one you mentioned)
+          if (gameGroup.gameId === "001" || gameGroup.gameId === "1233333") {
+            if (Array.isArray(gameGroup.results)) {
+              gameGroup.results.forEach((res) => {
+                if (!res.date) return;
                 if (!table[res.date]) table[res.date] = createEmptyRow(res.date);
-                table[res.date][columnName] = res.resultNumber ?? "-";
-              }
-            });
-          } 
-          // --- CASE 2: Flat Results (Main API Structure) ---
-          else if (item.date && item.gameId) {
-            const columnName = GAME_MAP[item.gameId];
-            if (columnName) {
-              if (!table[item.date]) table[item.date] = createEmptyRow(item.date);
-              table[item.date][columnName] = item.resultNumber ?? "-";
+                table[res.date]["NOIDA KING"] = res.resultNumber ?? "-";
+              });
             }
           }
         });
@@ -53,9 +56,8 @@ export default function GameChartTable() {
         /* ---------- DATE SORT (ASCENDING: 01, 02, 03...) ---------- */
         const parseDate = (dateStr) => {
           if (!dateStr) return new Date(0);
-          const parts = dateStr.split("-"); 
+          const parts = dateStr.split("-"); // Expected DD-MM-YYYY
           if (parts.length === 3) {
-            // Converts DD-MM-YYYY to YYYY-MM-DD for reliable parsing
             return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
           }
           return new Date(dateStr);
@@ -67,7 +69,7 @@ export default function GameChartTable() {
 
         setRows(sortedRows);
       } catch (error) {
-        console.error("❌ Fetch error:", error);
+        console.error("❌ Error fetching data:", error);
       } finally {
         setLoading(false);
       }
@@ -76,7 +78,7 @@ export default function GameChartTable() {
     fetchAllData();
   }, []);
 
-  if (loading) return <p className="loading">Loading Results...</p>;
+  if (loading) return <div className="loading">Loading Chart...</div>;
 
   return (
     <div className="table-wrapper">
@@ -105,12 +107,12 @@ export default function GameChartTable() {
                   <td>{row.GALI}</td>
                   <td>{row.GHAZIABAD}</td>
                   <td>{row.FARIDABAD}</td>
-                  <td className="highlight-noida">{row["NOIDA KING"]}</td>
+                  <td className="noida-cell">{row["NOIDA KING"]}</td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="8">No data found</td>
+                <td colSpan="8">No records available for this period.</td>
               </tr>
             )}
           </tbody>
