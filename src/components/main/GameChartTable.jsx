@@ -41,8 +41,8 @@ export default function GameChartTable() {
     const fetchData = async () => {
       try {
         const [scrapeRes, noidaRes] = await Promise.all([
-          fetch(api.ReadScrapeData.totalData).then(r => r.json()),
-          fetch(api.GameResults.getAll).then(r => r.json()),
+          fetch(api.ReadScrapeData.totalData).then((r) => r.json()),
+          fetch(api.GameResults.getAll).then((r) => r.json()),
         ]);
 
         const table = new Map();
@@ -86,25 +86,29 @@ export default function GameChartTable() {
 
   return (
     <div className="table-wrapper fade-in">
-      <table className="game-table">
-        <thead>
-          <tr>
-            <th>DATE</th>
-            {COLUMNS.map(c => <th key={c}>{c}</th>)}
-          </tr>
-        </thead>
-
-        <tbody>
-          {rows.map(row => (
-            <tr key={row.date}>
-              <td className="date-cell">{row.date}</td>
-              {COLUMNS.map(col => (
-                <td key={col}>{row[col]}</td>
+      <div className="table-container">
+        <table className="game-table">
+          <thead>
+            <tr>
+              <th>DATE</th>
+              {COLUMNS.map((c) => (
+                <th key={c}>{c}</th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.date}>
+                <td className="date-cell">{row.date}</td>
+                {COLUMNS.map((col) => (
+                  <td key={col}>{row[col]}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
