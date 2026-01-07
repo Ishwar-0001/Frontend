@@ -2,7 +2,7 @@ import React from "react";
 import { FaWhatsapp } from "react-icons/fa";
 
 const WhatsAppButton = () => {
-  const phoneNumber = "918888888888"; // ← Yahan apna number add karo (without +)
+  const phoneNumber = "918888888888"; 
 
   return (
     <a
