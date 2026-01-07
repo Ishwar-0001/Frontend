@@ -9,128 +9,110 @@ const GAME_MAP = {
   "120": "GALI",
   "119": "GHAZIABAD",
   "117": "FARIDABAD",
-  // "001" is handled specifically from the GameResults API
 };
+
+const NOIDA_IDS = new Set(["001", "1233333"]);
+
+const COLUMNS = [
+  "DESAWAR",
+  "SHRI GANESH",
+  "DELHI BAZAR",
+  "GALI",
+  "GHAZIABAD",
+  "FARIDABAD",
+  "NOIDA KING",
+];
+
+const parseDate = (date) => {
+  const [d, m, y] = date.split("-");
+  return new Date(`${y}-${m}-${d}`);
+};
+
+const createRow = (date) =>
+  COLUMNS.reduce((a, c) => ({ ...a, [c]: "-" }), { date });
 
 export default function GameChartTable() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchAllData = async () => {
+    let mounted = true;
+
+    const fetchData = async () => {
       try {
-        // Fetch both APIs simultaneously
         const [scrapeRes, noidaRes] = await Promise.all([
-          fetch(api.ReadScrapeData.totalData).then((res) => res.json()),
-          fetch(api.GameResults.getAll).then((res) => res.json()),
+          fetch(api.ReadScrapeData.totalData).then(r => r.json()),
+          fetch(api.GameResults.getAll).then(r => r.json()),
         ]);
 
-        const table = {};
+        const table = new Map();
 
-        /* ---------- PROCESS SCRAPED DATA (Main Games) ---------- */
-        const mainData = scrapeRes.data || [];
-        mainData.forEach((item) => {
-          if (!item?.date || !item?.gameId) return;
-          const columnName = GAME_MAP[item.gameId];
-          if (!columnName) return;
+        scrapeRes?.data?.forEach(({ date, gameId, resultNumber }) => {
+          const col = GAME_MAP[gameId];
+          if (!date || !col) return;
 
-          if (!table[item.date]) table[item.date] = createEmptyRow(item.date);
-          table[item.date][columnName] = item.resultNumber ?? "-";
+          if (!table.has(date)) table.set(date, createRow(date));
+          table.get(date)[col] = resultNumber ?? "-";
         });
 
-        /* ---------- PROCESS NOIDA KING DATA (Nested Structure) ---------- */
-        const noidaDataList = noidaRes.data || [];
-        noidaDataList.forEach((gameGroup) => {
-          // Check if this group is Noida King (ID 001 or the one you mentioned)
-          if (gameGroup.gameId === "001" || gameGroup.gameId === "1233333") {
-            if (Array.isArray(gameGroup.results)) {
-              gameGroup.results.forEach((res) => {
-                if (!res.date) return;
-                if (!table[res.date]) table[res.date] = createEmptyRow(res.date);
-                table[res.date]["NOIDA KING"] = res.resultNumber ?? "-";
-              });
-            }
-          }
+        noidaRes?.data?.forEach((group) => {
+          if (!NOIDA_IDS.has(group.gameId)) return;
+
+          group.results?.forEach(({ date, resultNumber }) => {
+            if (!date) return;
+
+            if (!table.has(date)) table.set(date, createRow(date));
+            table.get(date)["NOIDA KING"] = resultNumber ?? "-";
+          });
         });
 
-        /* ---------- DATE SORT (ASCENDING: 01, 02, 03...) ---------- */
-        const parseDate = (dateStr) => {
-          if (!dateStr) return new Date(0);
-          const parts = dateStr.split("-"); // Expected DD-MM-YYYY
-          if (parts.length === 3) {
-            return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-          }
-          return new Date(dateStr);
-        };
-
-        const sortedRows = Object.values(table).sort(
-          (a, b) => parseDate(a.date) - parseDate(b.date)
-        );
-
-        setRows(sortedRows);
-      } catch (error) {
-        console.error("❌ Error fetching data:", error);
+        if (mounted) {
+          setRows(
+            [...table.values()].sort(
+              (a, b) => parseDate(a.date) - parseDate(b.date)
+            )
+          );
+        }
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
-    fetchAllData();
+    fetchData();
+    return () => (mounted = false);
   }, []);
 
-  if (loading) return <div className="loading">Loading Chart...</div>;
+  if (loading) return <Skeleton />;
 
   return (
-    <div className="table-wrapper">
-      <div className="table-container">
-        <table className="game-table">
-          <thead>
-            <tr>
-              <th>DATE</th>
-              <th>DESAWAR</th>
-              <th>SHRI GANESH</th>
-              <th>DELHI BAZAR</th>
-              <th>GALI</th>
-              <th>GHAZIABAD</th>
-              <th>FARIDABAD</th>
-              <th>NOIDA KING</th>
+    <div className="table-wrapper fade-in">
+      <table className="game-table">
+        <thead>
+          <tr>
+            <th>DATE</th>
+            {COLUMNS.map(c => <th key={c}>{c}</th>)}
+          </tr>
+        </thead>
+
+        <tbody>
+          {rows.map(row => (
+            <tr key={row.date}>
+              <td className="date-cell">{row.date}</td>
+              {COLUMNS.map(col => (
+                <td key={col}>{row[col]}</td>
+              ))}
             </tr>
-          </thead>
-          <tbody>
-            {rows.length > 0 ? (
-              rows.map((row, index) => (
-                <tr key={index}>
-                  <td className="date-cell">{row.date}</td>
-                  <td>{row.DESAWAR}</td>
-                  <td>{row["SHRI GANESH"]}</td>
-                  <td>{row["DELHI BAZAR"]}</td>
-                  <td>{row.GALI}</td>
-                  <td>{row.GHAZIABAD}</td>
-                  <td>{row.FARIDABAD}</td>
-                  <td className="noida-cell">{row["NOIDA KING"]}</td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="8">No records available for this period.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
-function createEmptyRow(date) {
-  return {
-    date,
-    DESAWAR: "-",
-    "SHRI GANESH": "-",
-    "DELHI BAZAR": "-",
-    GALI: "-",
-    GHAZIABAD: "-",
-    FARIDABAD: "-",
-    "NOIDA KING": "-",
-  };
-}
+const Skeleton = () => (
+  <div className="skeleton-wrapper">
+    <div className="skeleton-row" />
+    <div className="skeleton-row" />
+    <div className="skeleton-row" />
+  </div>
+);
