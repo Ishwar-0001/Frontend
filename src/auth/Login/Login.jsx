@@ -1,218 +1,225 @@
-import React, { useState } from 'react';
-import axios from 'axios';
-import { toast } from 'react-toastify';
-import { useNavigate, Link } from 'react-router-dom';
-import API_URLS from '../../api/api'; 
+import { useState } from "react";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
+import { Eye, EyeOff, Lock, Mail, Loader2 } from "lucide-react"; // Modern Icons
+import api from "../../api/api"; 
 
 const Login = () => {
-  const navigate = useNavigate();
-  
-  // State Management
-  const [step, setStep] = useState(1); // 1: Identifier, 2: OTP, 3: Password
+  const [formData, setFormData] = useState({ email: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  
-  // Form Data
-  const [identifier, setIdentifier] = useState('');
-  const [otp, setOtp] = useState('');
-  const [password, setPassword] = useState('');
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  // ==========================
-  // STEP 1: REQUEST OTP
-  // ==========================
-  const handleRequestOTP = async (e) => {
-    e.preventDefault();
-    if (!identifier) return toast.warning('Please enter email or username');
-    
-    setLoading(true);
-    try {
-      const res = await axios.post(API_URLS.Auth.requestLoginOTP, { identifier });
-      toast.success(res.data.message);
-      setStep(2);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to find account');
-    } finally {
-      setLoading(false);
-    }
+  const navigate = useNavigate();
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // ==========================
-  // STEP 2: VERIFY OTP
-  // ==========================
-  const handleVerifyOTP = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!otp) return toast.warning('Please enter the OTP');
-
+    setError("");
+    setSuccess("");
     setLoading(true);
-    try {
-      const res = await axios.post(API_URLS.Auth.verifyLoginOTP, { identifier, otp });
-      toast.success(res.data.message);
-      setStep(3);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Invalid OTP');
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  // ==========================
-  // STEP 3: PASSWORD LOGIN
-  // ==========================
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    if (!password) return toast.warning('Please enter your password');
-
-    setLoading(true);
     try {
-      const res = await axios.post(API_URLS.Auth.loginWithPassword, { identifier, password });
-      
-      // Save Token
-      localStorage.setItem('token', res.data.token);
-      
-      toast.success('Login Successful! Redirecting...');
-      
-      // Small delay for UX
-      setTimeout(() => {
-        navigate('/hidden-dashboard');
-      }, 500);
-      
+      const res = await axios.post(api.Auth.login, formData, { withCredentials: true });
+      setSuccess("Success! Redirecting...");
+      setTimeout(() => navigate("/hidden-dashboard"), 1500);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Login failed');
+      setError(err.response?.data?.message || "Invalid email or password");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-blue-50 py-12 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-xl border border-gray-100 transition-all duration-300">
-        
-        {/* HEADER */}
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-extrabold text-gray-900">
-            {step === 1 && 'Welcome Back'}
-            {step === 2 && 'Security Check'}
-            {step === 3 && 'Finish Login'}
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            {step === 1 && 'Sign in to access your dashboard'}
-            {step === 2 && 'We need to verify it\'s really you'}
-            {step === 3 && 'Enter your password to continue'}
-          </p>
+    <div style={uiStyles.page}>
+      {/* Background Decorative Blobs */}
+      <div style={uiStyles.blob1}></div>
+      <div style={uiStyles.blob2}></div>
+
+      <div style={uiStyles.card}>
+        <div style={uiStyles.header}>
+          <div style={uiStyles.logoIcon}>
+            <Lock size={24} color="#4f46e5" />
+          </div>
+          <h2 style={uiStyles.title}>Secure Login</h2>
+          <p style={uiStyles.subtitle}>Enter your credentials to access the scraper</p>
         </div>
 
-        {/* ========================== */}
-        {/* STEP 1 FORM: IDENTIFIER    */}
-        {/* ========================== */}
-        {step === 1 && (
-          <form onSubmit={handleRequestOTP} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email or Username
-              </label>
-              <input 
-                type="text" 
-                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition duration-200"
-                placeholder="john@example.com" 
-                value={identifier} 
-                onChange={(e) => setIdentifier(e.target.value)} 
-                autoFocus
+        <form onSubmit={handleSubmit}>
+          {error && <div style={uiStyles.errorBadge}>{error}</div>}
+          {success && <div style={uiStyles.successBadge}>{success}</div>}
+
+          {/* Email Input */}
+          <div style={uiStyles.inputGroup}>
+            <label style={uiStyles.label}>Email Address</label>
+            <div style={uiStyles.inputWrapper}>
+              <Mail size={18} style={uiStyles.iconLeft} />
+              <input
+                type="email"
+                name="email"
+                placeholder="you@example.com"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                style={uiStyles.input}
               />
             </div>
-            
-            <button type="submit" disabled={loading} className="w-full flex justify-center py-2.5 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-200 disabled:opacity-50">
-              {loading ? 'Checking...' : 'Continue'}
-            </button>
-          </form>
-        )}
-
-        {/* ========================== */}
-        {/* STEP 2 FORM: OTP           */}
-        {/* ========================== */}
-        {step === 2 && (
-          <form onSubmit={handleVerifyOTP} className="space-y-6">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-              <p className="text-sm text-blue-800">
-                OTP sent to <strong>{identifier}</strong>
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 text-center">
-                Enter Verification Code
-              </label>
-              <input 
-                type="text" 
-                className="block w-full text-center text-2xl tracking-[0.5em] font-bold text-gray-800 px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200"
-                placeholder="000000" 
-                maxLength="6"
-                value={otp} 
-                onChange={(e) => setOtp(e.target.value)} 
-                autoFocus
-              />
-            </div>
-
-            <button type="submit" disabled={loading} className="w-full flex justify-center py-2.5 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 transition duration-200 disabled:opacity-50">
-              {loading ? 'Verifying...' : 'Verify OTP'}
-            </button>
-            
-            <div className="text-center">
-               <button type="button" onClick={() => setStep(1)} className="text-sm text-gray-500 hover:text-indigo-600">
-                 ← Changed your mind?
-               </button>
-            </div>
-          </form>
-        )}
-
-        {/* ========================== */}
-        {/* STEP 3 FORM: PASSWORD      */}
-        {/* ========================== */}
-        {step === 3 && (
-          <form onSubmit={handleLogin} className="space-y-6">
-             <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center mb-4">
-              <p className="text-sm text-green-800 flex items-center justify-center gap-2">
-                <span className="text-lg">✓</span> OTP Verified Successfully
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Password
-              </label>
-              <input 
-                type="password" 
-                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition duration-200"
-                placeholder="••••••••" 
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)} 
-                autoFocus
-              />
-              <div className="text-right mt-1">
-                 <Link to="/hidden-forgot-password" class="text-xs text-indigo-600 hover:text-indigo-500">
-                   Forgot password?
-                 </Link>
-              </div>
-            </div>
-
-            <button type="submit" disabled={loading} className="w-full flex justify-center py-2.5 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 transition duration-200 disabled:opacity-50">
-              {loading ? 'Logging in...' : 'Sign In'}
-            </button>
-          </form>
-        )}
-
-        {/* FOOTER */}
-        {step === 1 && (
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
-              <Link to="/hidden-register" className="font-medium text-indigo-600 hover:text-indigo-500">
-                Register
-              </Link>
-            </p>
           </div>
-        )}
+
+          {/* Password Input */}
+          <div style={uiStyles.inputGroup}>
+            <label style={uiStyles.label}>Password</label>
+            <div style={uiStyles.inputWrapper}>
+              <Lock size={18} style={uiStyles.iconLeft} />
+              <input
+                type={showPassword ? "text" : "password"}
+                name="password"
+                placeholder="••••••••"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                style={uiStyles.input}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={uiStyles.eyeButton}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </div>
+
+          <button 
+            type="submit" 
+            disabled={loading} 
+            style={{
+                ...uiStyles.button,
+                backgroundColor: loading ? "#818cf8" : "#4f46e5"
+            }}
+          >
+            {loading ? <Loader2 style={uiStyles.spin} size={20} /> : "Sign In"}
+          </button>
+        </form>
+
+        <p style={uiStyles.footerText}>
+          Don't have an account? <span style={uiStyles.link}>Contact Admin</span>
+        </p>
       </div>
     </div>
   );
 };
+
+const uiStyles = {
+  page: {
+    minHeight: "100vh",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f1f5f9",
+    fontFamily: "'Inter', system-ui, sans-serif",
+    position: "relative",
+    overflow: "hidden",
+  },
+  blob1: {
+    position: "absolute",
+    width: "300px",
+    height: "300px",
+    background: "rgba(79, 70, 229, 0.1)",
+    borderRadius: "50%",
+    top: "-100px",
+    right: "-50px",
+    filter: "blur(50px)",
+  },
+  blob2: {
+    position: "absolute",
+    width: "250px",
+    height: "250px",
+    background: "rgba(147, 51, 234, 0.1)",
+    borderRadius: "50%",
+    bottom: "-50px",
+    left: "-50px",
+    filter: "blur(50px)",
+  },
+  card: {
+    width: "100%",
+    maxWidth: "420px",
+    padding: "40px",
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    backdropFilter: "blur(10px)",
+    borderRadius: "20px",
+    boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.1)",
+    border: "1px solid #ffffff",
+    zIndex: 1,
+  },
+  header: { textAlign: "center", marginBottom: "32px" },
+  logoIcon: {
+    width: "48px",
+    height: "48px",
+    backgroundColor: "#eef2ff",
+    borderRadius: "12px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    margin: "0 auto 16px auto",
+  },
+  title: { fontSize: "24px", fontWeight: "800", color: "#1e293b", margin: "0" },
+  subtitle: { fontSize: "14px", color: "#64748b", marginTop: "8px" },
+  inputGroup: { marginBottom: "20px" },
+  label: { display: "block", fontSize: "13px", fontWeight: "600", color: "#475569", marginBottom: "6px" },
+  inputWrapper: { position: "relative", display: "flex", alignItems: "center" },
+  iconLeft: { position: "absolute", left: "12px", color: "#94a3b8" },
+  input: {
+    width: "100%",
+    padding: "12px 40px", // space for icons
+    borderRadius: "10px",
+    border: "1px solid #e2e8f0",
+    fontSize: "15px",
+    transition: "all 0.2s",
+    outline: "none",
+    backgroundColor: "#fff",
+  },
+  eyeButton: {
+    position: "absolute",
+    right: "12px",
+    background: "none",
+    border: "none",
+    color: "#94a3b8",
+    cursor: "pointer",
+    padding: "4px",
+    display: "flex",
+  },
+  button: {
+    width: "100%",
+    padding: "14px",
+    color: "white",
+    border: "none",
+    borderRadius: "10px",
+    fontSize: "16px",
+    fontWeight: "600",
+    cursor: "pointer",
+    display: "flex",
+    justifyContent: "center",
+    transition: "transform 0.1s",
+    marginTop: "10px",
+  },
+  errorBadge: { padding: "12px", backgroundColor: "#fef2f2", color: "#dc2626", borderRadius: "8px", fontSize: "13px", marginBottom: "16px", border: "1px solid #fecaca" },
+  successBadge: { padding: "12px", backgroundColor: "#f0fdf4", color: "#16a34a", borderRadius: "8px", fontSize: "13px", marginBottom: "16px", border: "1px solid #bbf7d0" },
+  footerText: { textAlign: "center", fontSize: "14px", color: "#64748b", marginTop: "24px" },
+  link: { color: "#4f46e5", fontWeight: "600", cursor: "pointer" },
+  spin: { animation: "spin 1s linear infinite" }
+};
+
+// Add this to your Global CSS or index.css for the loading spinner animation:
+/*
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+*/
 
 export default Login;
