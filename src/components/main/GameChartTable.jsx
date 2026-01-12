@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import "./GameChartTable.css";
 import api from "../../api/api";
+import "./GameChartTable.css";
 
 const GAME_MAP = {
   "116": "DESAWAR",
@@ -11,98 +11,85 @@ const GAME_MAP = {
   "117": "FARIDABAD",
 };
 
-const NOIDA_IDS = new Set(["001", "1233333"]);
-
-const COLUMNS = [
-  "DESAWAR",
-  "SHRI GANESH",
-  "DELHI BAZAR",
-  "GALI",
-  "GHAZIABAD",
-  "FARIDABAD",
-  "NOIDA KING",
-];
-
-const parseDate = (date) => {
-  const [d, m, y] = date.split("-");
-  return new Date(`${y}-${m}-${d}`);
-};
-
-const createRow = (date) =>
-  COLUMNS.reduce((a, c) => ({ ...a, [c]: "-" }), { date });
+const COLUMNS = ["DESAWAR", "SHRI GANESH", "DELHI BAZAR", "GALI", "GHAZIABAD", "FARIDABAD"];
 
 export default function GameChartTable() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    let mounted = true;
+    let isMounted = true;
 
     const fetchData = async () => {
       try {
-        const [scrapeRes, noidaRes] = await Promise.all([
-          fetch(api.ReadScrapeData.totalData).then((r) => r.json()),
-          fetch(api.GameResults.getAll).then((r) => r.json()),
-        ]);
+        setLoading(true);
+        const response = await fetch(api.NewScrapeData.saveScrape);
+        if (!response.ok) throw new Error("Failed to fetch data");
+        
+        const result = await response.json();
 
-        const table = new Map();
+        if (result.success && isMounted) {
+          const tableMap = new Map();
 
-        scrapeRes?.data?.forEach(({ date, gameId, resultNumber }) => {
-          const col = GAME_MAP[gameId];
-          if (!date || !col) return;
+          // Grouping flat data by date
+          result.data.forEach(({ date, gameId, resultNumber }) => {
+            const gameName = GAME_MAP[gameId];
+            if (!gameName || !date) return;
 
-          if (!table.has(date)) table.set(date, createRow(date));
-          table.get(date)[col] = resultNumber ?? "-";
-        });
-
-        noidaRes?.data?.forEach((group) => {
-          if (!NOIDA_IDS.has(group.gameId)) return;
-
-          group.results?.forEach(({ date, resultNumber }) => {
-            if (!date) return;
-
-            if (!table.has(date)) table.set(date, createRow(date));
-            table.get(date)["NOIDA KING"] = resultNumber ?? "-";
+            if (!tableMap.has(date)) {
+              const row = { date };
+              COLUMNS.forEach(col => row[col] = "-");
+              tableMap.set(date, row);
+            }
+            tableMap.get(date)[gameName] = resultNumber || "-";
           });
-        });
 
-        if (mounted) {
-          setRows(
-            [...table.values()].sort(
-              (a, b) => parseDate(a.date) - parseDate(b.date)
-            )
-          );
+          // Sorting: 01-01-2026 at the top, increasing to today
+          const sortedData = Array.from(tableMap.values()).sort((a, b) => {
+            const [dayA, monthA, yearA] = a.date.split("-").map(Number);
+            const [dayB, monthB, yearB] = b.date.split("-").map(Number);
+            
+            return new Date(yearA, monthA - 1, dayA) - new Date(yearB, monthB - 1, dayB);
+          });
+
+          setRows(sortedData);
         }
+      } catch (err) {
+        if (isMounted) setError(err.message);
       } finally {
-        if (mounted) setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
     fetchData();
-    return () => (mounted = false);
+    return () => { isMounted = false; };
   }, []);
 
-  if (loading) return <Skeleton />;
+  if (loading) return <div className="loading">Loading 2026 Records...</div>;
+  if (error) return <div className="error">Error: {error}</div>;
 
   return (
-    <div className="table-wrapper fade-in">
-      <div className="table-container">
+    <div className="chart-wrapper">
+      <div className="table-responsive">
         <table className="game-table">
           <thead>
             <tr>
               <th>DATE</th>
-              {COLUMNS.map((c) => (
-                <th key={c}>{c}</th>
-              ))}
+              {COLUMNS.map(col => <th key={col}>{col}</th>)}
             </tr>
           </thead>
-
           <tbody>
-            {rows.map((row) => (
-              <tr key={row.date}>
-                <td className="date-cell">{row.date}</td>
-                {COLUMNS.map((col) => (
-                  <td key={col}>{row[col]}</td>
+            {rows.map((row, index) => (
+              <tr key={row.date} className={index % 2 === 0 ? "even" : "odd"}>
+                {/* Now shows the date string (e.g. 12-01-2026) directly */}
+                <td className="date-cell">
+                  {row.date}
+                </td>
+                {COLUMNS.map(col => (
+                  <td key={col} className={row[col] !== "-" ? "has-data" : "no-data"}>
+                    {row[col]}
+                  </td>
                 ))}
               </tr>
             ))}
@@ -112,11 +99,3 @@ export default function GameChartTable() {
     </div>
   );
 }
-
-const Skeleton = () => (
-  <div className="skeleton-wrapper">
-    <div className="skeleton-row" />
-    <div className="skeleton-row" />
-    <div className="skeleton-row" />
-  </div>
-);
