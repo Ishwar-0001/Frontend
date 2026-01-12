@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Home from "./home/Home";
 import Login from "./auth/Login/Login";
-// import Dashboard from './dashboard/Dashboard'
 import Dashboard from './auth/dashboard/Dashboard'
 export default function App() {
   return (

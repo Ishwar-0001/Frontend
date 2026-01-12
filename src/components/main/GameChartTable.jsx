@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import api from "../../api/api";
+import { Calendar, Table as TableIcon } from "lucide-react";
 import "./GameChartTable.css";
 
 const GAME_MAP = {
@@ -11,7 +12,7 @@ const GAME_MAP = {
   "117": "FARIDABAD",
 };
 
-const COLUMNS = ["DESAWAR", "SHRI GANESH", "DELHI BAZAR", "GALI", "GHAZIABAD", "FARIDABAD"];
+const COLUMNS = ["DESAWAR", "SHRI GANESH", "DELHI BAZAR", "GALI", "GHAZIABAD", "FARIDABAD", "NOIDA KING"];
 
 export default function GameChartTable() {
   const [rows, setRows] = useState([]);
@@ -20,36 +21,49 @@ export default function GameChartTable() {
 
   useEffect(() => {
     let isMounted = true;
-
-    const fetchData = async () => {
+    const fetchAllData = async () => {
       try {
         setLoading(true);
-        const response = await fetch(api.NewScrapeData.saveScrape);
-        if (!response.ok) throw new Error("Failed to fetch data");
-        
-        const result = await response.json();
+        const [scrapeRes, noidaRes] = await Promise.all([
+          fetch(api.NewScrapeData.saveScrape),
+          fetch(api.DateNumber.getAll),
+        ]);
 
-        if (result.success && isMounted) {
+        if (!scrapeRes.ok || !noidaRes.ok) throw new Error("API Fetch failed");
+
+        const scrapeResult = await scrapeRes.json();
+        const noidaResult = await noidaRes.json();
+
+        if (isMounted) {
           const tableMap = new Map();
 
-          // Grouping flat data by date
-          result.data.forEach(({ date, gameId, resultNumber }) => {
+          // Helper to create a fresh row with empty spaces
+          const createEmptyRow = (date) => {
+            const row = { date };
+            COLUMNS.forEach(col => row[col] = ""); // Changed from "-" to ""
+            return row;
+          };
+
+          // 1. Process Scrape Data
+          scrapeResult.data.forEach(({ date, gameId, resultNumber }) => {
             const gameName = GAME_MAP[gameId];
             if (!gameName || !date) return;
-
-            if (!tableMap.has(date)) {
-              const row = { date };
-              COLUMNS.forEach(col => row[col] = "-");
-              tableMap.set(date, row);
-            }
-            tableMap.get(date)[gameName] = resultNumber || "-";
+            if (!tableMap.has(date)) tableMap.set(date, createEmptyRow(date));
+            tableMap.get(date)[gameName] = resultNumber || "";
           });
 
-          // Sorting: 01-01-2026 at the top, increasing to today
+          // 2. Process Noida King Data
+          noidaResult.data.forEach(({ date, number }) => {
+            if (!date) return;
+            if (!tableMap.has(date)) tableMap.set(date, createEmptyRow(date));
+            tableMap.get(date)["NOIDA KING"] = number || "";
+          });
+
+          // 3. Sorting: Ascending (01 to 31)
           const sortedData = Array.from(tableMap.values()).sort((a, b) => {
             const [dayA, monthA, yearA] = a.date.split("-").map(Number);
             const [dayB, monthB, yearB] = b.date.split("-").map(Number);
-            
+            // Sort from oldest date to newest date
             return new Date(yearA, monthA - 1, dayA) - new Date(yearB, monthB - 1, dayB);
           });
 
@@ -62,32 +76,31 @@ export default function GameChartTable() {
       }
     };
 
-    fetchData();
+    fetchAllData();
     return () => { isMounted = false; };
   }, []);
 
-  if (loading) return <div className="loading">Loading 2026 Records...</div>;
-  if (error) return <div className="error">Error: {error}</div>;
+  if (loading) return <div className="simple-loader">Loading records...</div>;
+  if (error) return <div className="error-text">Error: {error}</div>;
 
   return (
-    <div className="chart-wrapper">
-      <div className="table-responsive">
-        <table className="game-table">
+    <div className="clean-container">
+      <div className="table-outer">
+        <table className="minimal-table">
           <thead>
             <tr>
-              <th>DATE</th>
+              <th className="sticky-col">Date</th>
               {COLUMNS.map(col => <th key={col}>{col}</th>)}
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, index) => (
-              <tr key={row.date} className={index % 2 === 0 ? "even" : "odd"}>
-                {/* Now shows the date string (e.g. 12-01-2026) directly */}
-                <td className="date-cell">
+            {rows.map((row) => (
+              <tr key={row.date}>
+                <td className="date-col sticky-col">
                   {row.date}
                 </td>
                 {COLUMNS.map(col => (
-                  <td key={col} className={row[col] !== "-" ? "has-data" : "no-data"}>
+                  <td key={col} className="data-cell">
                     {row[col]}
                   </td>
                 ))}
